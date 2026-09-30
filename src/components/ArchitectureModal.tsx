@@ -16,7 +16,8 @@ import {
   Activity,
   Clock,
   CheckCircle2,
-  FileJson
+  FileJson,
+  Download
 } from 'lucide-react';
 import { MessageItem, ToolExecutionRecord } from '../types/index.js';
 
@@ -26,8 +27,9 @@ interface ArchitectureModalProps {
 }
 
 export const ArchitectureModal: React.FC<ArchitectureModalProps> = ({ language, messages = [] }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'agent' | 'schema' | 'antihallucination' | 'security' | 'telemetry' | 'readme'>('overview');
-  const [copied, setCopied] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'agent' | 'schema' | 'antihallucination' | 'security' | 'telemetry' | 'readme' | 'decisions'>('overview');
+  const [copiedReadme, setCopiedReadme] = useState(false);
+  const [copiedDecisions, setCopiedDecisions] = useState(false);
 
   // Extract all tool execution records across messages
   const allExecutions: {
@@ -185,16 +187,118 @@ CREATE INDEX idx_doctors_second_opinion ON doctors(second_opinion_available);
 - **Medical Tourism Focus**: Provider dataset mirrors premier hubs for international patients (Istanbul, Dubai, Riyadh, Amman, Berlin, London).
 `;
 
+  const fullDecisionsContent = `# HealTrip Technical Decisions, Assumptions & Architecture Notes
+
+**Candidate Submission Document**  
+**Role:** Full-Stack / AI Engineer  
+**Project:** HealTrip AI Patient Decision Assistant  
+**Date:** September 2026  
+
+---
+
+## 1. Executive Overview
+This document accompanies the submission of the HealTrip AI Patient Decision Assistant. It details the clinical and technical assumptions, architectural trade-offs, defensive design principles, and future engineering roadmap.
+
+---
+
+## 2. Key Assumptions
+1. **Safety Over Fluency (Zero-Harm Principle):** In healthcare, under-triaging acute red flags (e.g. dismissing Acute Coronary Syndrome as mild indigestion) is unacceptable. Deterministic clinical rules must guard before probabilistic LLM reasoning.
+2. **Four Patient Urgency Buckets:**
+   - EMERGENCY_RED_FLAG (Immediate threat to life/limb; 911/998/112 dispatch + 24/7 ER)
+   - URGENT_EVALUATION (Severe, non-critical symptoms requiring exam within 24-48 hours)
+   - SPECIALIST_CONSULT (Chronic, localized, non-acute issues needing diagnostic workup)
+   - SECOND_OPINION_TELEHEALTH (Elective surgeries/procedures where patient seeks cross-border senior review)
+3. **Medical Tourism Feasibility:** International second opinions require a clinically stable patient with existing diagnostic reports (MRI/CT scans, pathology, catheterization notes).
+4. **Bilingual Regional Needs:** Native support for Arabic (العربية - RTL) and English (LTR).
+
+---
+
+## 3. Technical & Architectural Decisions
+- **Decision 1: Native Agentic Tool Calling vs Freeform Generation:** Tool calling with strict schemas (search_providers, evaluate_triage_urgency) completely eliminates synthetic hospital/doctor hallucination.
+- **Decision 2: Deterministic Pre-Screening Engine:** Pre-LLM clinical rule evaluator intercepts acute cardiac, stroke, and respiratory symptoms, triggering emergency protocols regardless of LLM temperature.
+- **Decision 3: Zero-Downtime Dual Pipeline:** Automatic fallback to rule engine and local database search if external AI API keys or quotas are disrupted.
+- **Decision 4: Express Serverless Proxy on Vercel:** Keeps GEMINI_API_KEY secure on the server, avoiding browser credential leakage.
+- **Decision 5: PostgreSQL DDL Ready Schema:** Normalized entities (hospitals, doctors, specialties) ready for Cloud SQL or Supabase migration via Drizzle ORM.
+
+---
+
+## 4. Edge Cases Handled
+- Acute Coronary Syndrome (Heart Attack) detection with 24/7 ER routing
+- Zero database matches handled gracefully without fabricated clinics
+- Interactive clarifying questions for ambiguous symptom inputs
+- Missing/invalid API keys handled with full diagnostic reporting in /api/health
+`;
+
+  const downloadMarkdownFile = (filename: string, content: string) => {
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadWordDocument = (filename: string, title: string, markdownContent: string) => {
+    const formattedHtml = markdownContent
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
+      .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+      .replace(/```([\s\S]*?)```/gim, '<pre>$1</pre>')
+      .replace(/`([^`]+)`/gim, '<code>$1</code>')
+      .replace(/\n\n/gim, '<br/><br/>');
+
+    const html = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>${title}</title>
+      <style>
+        body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #1e293b; margin: 40px; }
+        h1 { color: #0f766e; font-size: 20pt; border-bottom: 2px solid #0f766e; padding-bottom: 6px; }
+        h2 { color: #0f766e; font-size: 14pt; margin-top: 20px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
+        h3 { color: #334155; font-size: 12pt; margin-top: 14px; }
+        pre { font-family: Consolas, monospace; font-size: 9pt; background: #0f172a; color: #f8fafc; padding: 10px; border-radius: 6px; white-space: pre-wrap; }
+        code { font-family: Consolas, monospace; background: #f1f5f9; color: #0f766e; padding: 2px 4px; }
+        blockquote { border-left: 4px solid #0f766e; padding: 8px 14px; background: #f0fdfa; color: #134e4a; font-style: italic; }
+      </style>
+      </head>
+      <body>
+        ${formattedHtml}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename.endsWith('.doc') ? filename : `${filename}.doc`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleCopyReadme = () => {
     navigator.clipboard.writeText(fullReadmeContent);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    setCopiedReadme(true);
+    setTimeout(() => setCopiedReadme(false), 2500);
+  };
+
+  const handleCopyDecisions = () => {
+    navigator.clipboard.writeText(fullDecisionsContent);
+    setCopiedDecisions(true);
+    setTimeout(() => setCopiedDecisions(false), 2500);
   };
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       {/* Top Banner */}
-      <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-500/20 text-teal-300 border border-teal-500/30">
@@ -206,17 +310,37 @@ CREATE INDEX idx_doctors_second_opinion ON doctors(second_opinion_available);
             System Architecture & Engineering Decisions
           </h2>
           <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-            Transparent architectural blueprints, tool calling contracts, database entity models, anti-hallucination guardrails, and production considerations.
+            Transparent architectural blueprints, tool calling contracts, database entity models, anti-hallucination guardrails, and submission documentation.
           </p>
         </div>
 
-        <button
-          onClick={handleCopyReadme}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs transition-colors shadow-sm self-start md:self-center"
-        >
-          {copied ? <Check className="w-4 h-4 text-emerald-950" /> : <Copy className="w-4 h-4" />}
-          <span>{copied ? 'Copied Full README.md!' : 'Copy README.md (For GitHub)'}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start lg:self-center">
+          <button
+            onClick={() => downloadWordDocument('README.doc', 'HealTrip AI - README Spec', fullReadmeContent)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-colors shadow-sm"
+            title="Download formatted Microsoft Word .doc file"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download README.doc (Word)</span>
+          </button>
+
+          <button
+            onClick={() => downloadMarkdownFile('README.md', fullReadmeContent)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs transition-colors shadow-sm"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>README.md</span>
+          </button>
+
+          <button
+            onClick={() => downloadWordDocument('TECHNICAL_DECISIONS_AND_ASSUMPTIONS.doc', 'HealTrip Technical Decisions & Assumptions', fullDecisionsContent)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 font-semibold text-xs transition-colors shadow-sm"
+            title="Download Notes & Assumptions in Word format"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Notes & Assumptions (.doc)</span>
+          </button>
+        </div>
       </div>
 
       {/* Sub Tabs */}
@@ -302,7 +426,19 @@ CREATE INDEX idx_doctors_second_opinion ON doctors(second_opinion_available);
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>Raw README.md</span>
+          <span>README.md</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('decisions')}
+          className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
+            activeSubTab === 'decisions'
+              ? 'bg-teal-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          <span>Notes & Assumptions</span>
         </button>
       </div>
 
@@ -647,18 +783,68 @@ CREATE INDEX idx_doctors_hospital_id ON doctors(hospital_id);`}</pre>
 
       {activeSubTab === 'readme' && (
         <div className="bg-slate-950 text-slate-200 rounded-2xl p-6 font-mono text-xs overflow-x-auto border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <span className="text-teal-400 font-bold">README.md (Ready to submit)</span>
-            <button
-              onClick={handleCopyReadme}
-              className="px-3 py-1.5 rounded-lg bg-teal-600 text-white font-sans text-xs font-semibold hover:bg-teal-500 transition-colors flex items-center gap-1.5"
-            >
-              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied!' : 'Copy to Clipboard'}</span>
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <span className="text-teal-400 font-bold">README.md (Architecture & Repository Specification)</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => downloadWordDocument('README.doc', 'HealTrip AI - README Spec', fullReadmeContent)}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download .doc (Word)</span>
+              </button>
+              <button
+                onClick={() => downloadMarkdownFile('README.md', fullReadmeContent)}
+                className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-sans text-xs font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download .md</span>
+              </button>
+              <button
+                onClick={handleCopyReadme}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-sans text-xs font-semibold transition-colors flex items-center gap-1.5 border border-slate-700"
+              >
+                {copiedReadme ? <Check className="w-3.5 h-3.5 text-teal-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedReadme ? 'Copied!' : 'Copy to Clipboard'}</span>
+              </button>
+            </div>
           </div>
           <pre className="whitespace-pre-wrap text-slate-300 leading-relaxed">
             {fullReadmeContent}
+          </pre>
+        </div>
+      )}
+
+      {activeSubTab === 'decisions' && (
+        <div className="bg-slate-950 text-slate-200 rounded-2xl p-6 font-mono text-xs overflow-x-auto border border-slate-800 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <span className="text-teal-400 font-bold">TECHNICAL_DECISIONS_AND_ASSUMPTIONS.md (Submission Document)</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => downloadWordDocument('TECHNICAL_DECISIONS_AND_ASSUMPTIONS.doc', 'HealTrip Technical Decisions & Assumptions', fullDecisionsContent)}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download .doc (Word)</span>
+              </button>
+              <button
+                onClick={() => downloadMarkdownFile('TECHNICAL_DECISIONS_AND_ASSUMPTIONS.md', fullDecisionsContent)}
+                className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-sans text-xs font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download .md</span>
+              </button>
+              <button
+                onClick={handleCopyDecisions}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-sans text-xs font-semibold transition-colors flex items-center gap-1.5 border border-slate-700"
+              >
+                {copiedDecisions ? <Check className="w-3.5 h-3.5 text-teal-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedDecisions ? 'Copied!' : 'Copy to Clipboard'}</span>
+              </button>
+            </div>
+          </div>
+          <pre className="whitespace-pre-wrap text-slate-300 leading-relaxed">
+            {fullDecisionsContent}
           </pre>
         </div>
       )}

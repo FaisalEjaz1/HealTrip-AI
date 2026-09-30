@@ -1,0 +1,225 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset='utf-8'>
+<title>HealTrip Technical Decisions & Assumptions</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+body {
+    font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1e293b;
+    margin: 40px;
+}
+h1 {
+    color: #0f766e;
+    font-size: 22pt;
+    font-weight: bold;
+    border-bottom: 2px solid #0f766e;
+    padding-bottom: 8px;
+    margin-top: 0;
+}
+h2 {
+    color: #0f766e;
+    font-size: 15pt;
+    font-weight: bold;
+    margin-top: 24px;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 4px;
+}
+h3 {
+    color: #334155;
+    font-size: 12pt;
+    font-weight: bold;
+    margin-top: 16px;
+}
+p {
+    margin-bottom: 10px;
+}
+blockquote {
+    border-left: 4px solid #0f766e;
+    padding: 8px 16px;
+    margin: 12px 0;
+    background-color: #f0fdfa;
+    color: #134e4a;
+    font-style: italic;
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+}
+th, td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 10pt;
+}
+th {
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-weight: bold;
+}
+pre {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 9.5pt;
+    background-color: #0f172a;
+    color: #f8fafc;
+    padding: 12px;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    margin: 12px 0;
+}
+code {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 9.5pt;
+    background-color: #f1f5f9;
+    color: #0f766e;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+ul, ol {
+    margin-top: 6px;
+    margin-bottom: 12px;
+    padding-left: 24px;
+}
+li {
+    margin-bottom: 4px;
+}
+.highlight-box {
+    background-color: #f0fdfa;
+    border: 1px solid #99f6e4;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 14px 0;
+}
+</style>
+</head>
+<body>
+
+<h1>HealTrip Technical Decisions, Assumptions & Architecture Notes</h1>
+<p><strong>Candidate Submission Document</strong><br>
+<strong>Role:</strong> Full-Stack / AI Engineer<br>
+<strong>Project:</strong> HealTrip AI Patient Decision Assistant<br>
+<strong>Date:</strong> September 2026</p>
+
+<hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 20px 0;">
+
+<h2>1. Executive Overview</h2>
+<p>This document accompanies the submission of the <strong>HealTrip AI Patient Decision Assistant</strong>. It details the clinical and technical assumptions, architectural trade-offs, defensive design principles, and future engineering roadmap considered while designing this prototype.</p>
+<p>The goal of this project is to solve a high-stakes clinical dilemma:</p>
+<blockquote>
+"A patient experiences ambiguous or concerning symptoms (e.g. chest pain, joint immobility, chronic headaches) and does not know whether they require an immediate 24/7 Emergency Room, an in-person specialist clinic, or a remote international second opinion."
+</blockquote>
+<p>A generic LLM chatbot is hazardous in this domain because of <strong>under-triaging acute emergencies</strong> and <strong>hallucinating fictitious doctors, fake phone numbers, or arbitrary prices</strong>. Our solution pairs modern agentic tool calling with deterministic clinical safety gates.</p>
+
+<h2>2. Key Assumptions</h2>
+<h3>2.1 Clinical & Triage Assumptions</h3>
+<ol>
+    <li><strong>Safety Over Fluency (Zero-Harm Principle):</strong> In healthcare, false negatives on acute red flags (e.g., dismissing Acute Coronary Syndrome as "mild indigestion") can be fatal. We assume that deterministic safety rules must precede probabilistic LLM reasoning.</li>
+    <li><strong>Patient Urgency Spectrum:</strong> Patient needs fall into 4 distinct clinical buckets:
+        <ul>
+            <li><code>EMERGENCY_RED_FLAG</code>: Immediate threat to life/limb. Requires immediate emergency dispatch (911/998/112) and 24/7 emergency department routing.</li>
+            <li><code>URGENT_EVALUATION</code>: Severe, worsening, or acute onset without immediate instability (requires clinical evaluation within 24–48 hours).</li>
+            <li><code>SPECIALIST_CONSULT</code>: Chronic, localized, non-acute issues needing diagnostic workup.</li>
+            <li><code>SECOND_OPINION_TELEHEALTH</code>: Existing diagnosis or proposed major surgery where the patient seeks an independent cross-border specialist review before committing.</li>
+        </ul>
+    </li>
+    <li><strong>Medical Tourism Feasibility:</strong> International second opinions are appropriate only when the patient is clinically stable and possesses existing diagnostic materials (MRI, CT, angiograms, or pathology reports).</li>
+</ol>
+
+<h3>2.2 User Persona & Regional Assumptions</h3>
+<ol>
+    <li><strong>High Stress & Cognitive Load:</strong> Patients seeking triage are anxious. The interface provides instant visual clarity (urgency badges, emergency callouts, one-tap clarifying questions) rather than overwhelming text walls.</li>
+    <li><strong>Bilingual Demographics:</strong> HealTrip's core demographic spans the GCC and global medical travel hubs (Turkey, Germany, Jordan, UK). The platform provides first-class support for <strong>Arabic (العربية, RTL)</strong> and <strong>English (LTR)</strong>.</li>
+</ol>
+
+<h2>3. Technical & Architectural Decisions</h2>
+
+<h3>Decision 1: Agentic Native Tool Calling vs. Pure RAG vs. Freeform LLM</h3>
+<div class="highlight-box">
+<p><strong>Chosen Approach:</strong> Agentic Native Tool Calling (Function Calling) with Gemini 3.8 Flash.</p>
+<p><strong>Why:</strong> Freeform LLMs hallucinate non-existent clinics and outdated numbers. Pure vector RAG struggles to enforce hard relational constraints (e.g., <code>emergency_department_247 == true</code>). Native tool calling ensures that 100% of recommended doctors and hospitals are real entities retrieved from the verified directory.</p>
+</div>
+
+<h3>Decision 2: Rule-Based Clinical Safety Gate (Pre-LLM Triage)</h3>
+<div class="highlight-box">
+<p><strong>Chosen Approach:</strong> A deterministic pre-screening clinical engine (<code>triageEngine.ts</code>) parses queries against clinical red-flag dictionaries before the LLM generates advice.</p>
+<p><strong>Why:</strong> Prevents conversational models from under-triaging life-threatening emergencies. If crushing chest pain or stroke symptoms are identified, emergency dispatch protocols (911 / 998 / 112) are presented immediately.</p>
+</div>
+
+<h3>Decision 3: Deterministic Fallback Engine (Zero-Downtime Guarantee)</h3>
+<div class="highlight-box">
+<p><strong>Chosen Approach:</strong> Dual-pipeline architecture in <code>server/ai/agent.ts</code>.</p>
+<p><strong>Why:</strong> If external AI APIs experience rate limits, network latency, or if the evaluator runs the app without an API key, the system seamlessly transitions to the deterministic decision engine without crashing.</p>
+</div>
+
+<h3>Decision 4: Express Serverless Handler on Vercel (<code>api/index.ts</code>)</h3>
+<div class="highlight-box">
+<p><strong>Chosen Approach:</strong> Server-side proxy isolating <code>GEMINI_API_KEY</code> on Vercel Serverless Functions.</p>
+<p><strong>Why:</strong> Calling LLMs directly from the browser leaks API secrets in browser DevTools. Server-side proxying ensures enterprise-grade security and HIPAA/GDPR compliance posture.</p>
+</div>
+
+<h2>4. Edge Cases Handled</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Edge Case</th>
+            <th>Clinical / System Risk</th>
+            <th>Engineering Mitigation</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Acute Coronary Syndrome (Heart Attack)</strong></td>
+            <td>Patient waits for an elective clinic while having an active infarct.</td>
+            <td>Pre-LLM triage triggers EMERGENCY_RED_FLAG banner, emergency dispatch advice, and filters exclusively for 24/7 ER hospitals.</td>
+        </tr>
+        <tr>
+            <td><strong>Zero Database Matches</strong></td>
+            <td>Model hallucinates non-existent local clinics to fill the gap.</td>
+            <td>Anti-hallucination verification rejects synthetic entities; system displays polite fallback explaining no providers currently match that specific filter.</td>
+        </tr>
+        <tr>
+            <td><strong>Ambiguous Symptom Description</strong></td>
+            <td>Model gives overly broad or inaccurate medical advice.</td>
+            <td>Agent generates 2–3 interactive clarifying question chips to help patients narrow their symptoms in one click.</td>
+        </tr>
+        <tr>
+            <td><strong>Missing or Expired API Key</strong></td>
+            <td>App crashes or displays an ugly error stack trace.</td>
+            <td>Automatic fallback to clinical rule engine; health endpoint (<code>/api/health</code>) reports key status with diagnostic telemetry.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>5. Security, Privacy & Compliance Posture</h2>
+<ul>
+    <li><strong>Zero Secret Leakage:</strong> The Gemini API key is isolated on the server. The browser bundle contains zero credentials.</li>
+    <li><strong>PII Minimization:</strong> The triage conversation requires no patient national ID numbers, credit cards, or insurance identifiers during the initial decision-making phase.</li>
+    <li><strong>Clinical Disclaimer:</strong> Every response includes prominent legal and clinical disclaimers stating that the tool provides decision support and does not replace emergency dispatch or definitive physician diagnosis.</li>
+</ul>
+
+<h2>6. Production Scaling Roadmap</h2>
+<ol>
+    <li><strong>Database Persistence:</strong> Migrate in-memory directory to managed PostgreSQL (Cloud SQL / Supabase) with Drizzle ORM and PostGIS spatial indexing.</li>
+    <li><strong>Hybrid Search (Vector + Relational):</strong> Combine structured SQL filtering with vector embeddings (<code>pgvector</code>) to index doctor research papers, surgical case logs, and patient testimonials.</li>
+    <li><strong>EHR / Telehealth Integration:</strong> Connect to HL7/FHIR APIs for diagnostic report ingestion (DICOM viewers) and integrate WebRTC for direct video consults.</li>
+    <li><strong>Physician-in-the-Loop Audit Queue:</strong> Implement an asynchronous audit dashboard where HealTrip medical directors review AI triage conversations.</li>
+</ol>
+
+<hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 20px 0;">
+<p style="font-size: 9.5pt; color: #64748b; text-align: center;">
+HealTrip Technical Submission Document &bull; Microsoft Word (.doc) Edition
+</p>
+
+</body>
+</html>

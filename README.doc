@@ -1,0 +1,284 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset='utf-8'>
+<title>HealTrip AI Patient Decision Assistant - README</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+body {
+    font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1e293b;
+    margin: 40px;
+}
+h1 {
+    color: #0f766e;
+    font-size: 22pt;
+    font-weight: bold;
+    border-bottom: 2px solid #0f766e;
+    padding-bottom: 8px;
+    margin-top: 0;
+}
+h2 {
+    color: #0f766e;
+    font-size: 15pt;
+    font-weight: bold;
+    margin-top: 24px;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 4px;
+}
+h3 {
+    color: #334155;
+    font-size: 12pt;
+    font-weight: bold;
+    margin-top: 16px;
+}
+p {
+    margin-bottom: 10px;
+}
+blockquote {
+    border-left: 4px solid #0f766e;
+    padding: 8px 16px;
+    margin: 12px 0;
+    background-color: #f0fdfa;
+    color: #134e4a;
+    font-style: italic;
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+}
+th, td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 10pt;
+}
+th {
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-weight: bold;
+}
+pre {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 9.5pt;
+    background-color: #0f172a;
+    color: #f8fafc;
+    padding: 12px;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 12px 0;
+}
+code {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 9.5pt;
+    background-color: #f1f5f9;
+    color: #0f766e;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+ul, ol {
+    margin-top: 6px;
+    margin-bottom: 12px;
+    padding-left: 24px;
+}
+li {
+    margin-bottom: 4px;
+}
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 9pt;
+    font-weight: bold;
+    border-radius: 4px;
+    background-color: #ccfbf1;
+    color: #115e59;
+}
+.alert-box {
+    background-color: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-left: 4px solid #e11d48;
+    padding: 12px 16px;
+    margin: 12px 0;
+    color: #881337;
+}
+</style>
+</head>
+<body>
+
+<h1>HealTrip AI Patient Decision Assistant</h1>
+<p><strong>Technical Evaluation Prototype for HealTrip</strong><br>
+<em>Full-Stack Engineering &bull; Clinical Triage &bull; Agentic Tool Calling &bull; Anti-Hallucination Architecture</em></p>
+
+<hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 20px 0;">
+
+<h2>1. Executive Summary & Problem Scope</h2>
+<p>When patients experience ambiguous or concerning medical symptoms—such as:</p>
+<blockquote>
+"I have chest pain and I'm not sure whether I should see a cardiologist, go to the ER, or seek a second opinion."
+</blockquote>
+<p>A naive conversational LLM presents two catastrophic healthcare risks:</p>
+<ol>
+    <li><strong>Safety Failure:</strong> Under-triaging acute emergencies (e.g., advising an elective consultation or a remote second opinion when the patient is in fact experiencing Acute Coronary Syndrome).</li>
+    <li><strong>Hallucination Risk:</strong> Inventing fictitious clinics, non-existent doctor names, arbitrary pricing, or wrong contact information.</li>
+</ol>
+<p>The <strong>HealTrip AI Patient Decision Assistant</strong> demonstrates an engineering architecture that systematically mitigates these risks using <strong>deterministic clinical pre-screening, native LLM tool calling, grounded database retrieval, and post-generation verification</strong>.</p>
+
+<h2>2. Architecture & Data Flow</h2>
+<pre>
+[ Patient / Browser (React 19 SPA) ]
+                 │
+                 │ JSON over HTTPS (Bilingual English / Arabic)
+                 ▼
+[ Full-Stack Express Server (server.ts / Vercel Serverless api/index.ts) ]
+                 │
+                 ├──► Step 1: Clinical Triage Pre-Screening
+                 │    Rule-based safety evaluator detecting ACS, Stroke FAST, Meningitis
+                 │
+                 ├──► Step 2: Gemini 3.8 Flash Agent Orchestration
+                 │    System prompts + Function/Tool Calling Declarations
+                 │    Tool: search_providers(...) & evaluate_triage_urgency(...)
+                 │
+                 ├──► Step 3: Structured Database Execution
+                 │    Queries indexed registry of JCI-accredited Hospitals & Doctors
+                 │    (Istanbul, Dubai, Riyadh, Amman, Berlin, London)
+                 │
+                 ├──► Step 4: Tool Response Synthesis
+                 │    Model incorporates tool query results into clinical explanation
+                 │
+                 ├──► Step 5: Anti-Hallucination & Grounding Check
+                 │    Verifies returned doctor/hospital IDs match database entities
+                 │
+                 ▼
+[ Strongly Typed AgentResponse Payload delivered to Frontend ]
+</pre>
+
+<h2>3. AI Agent Design & Tool Calling</h2>
+<h3>Core Tools Declared to LLM:</h3>
+<ul>
+    <li><code>search_providers</code>:
+        <ul>
+            <li><code>specialty</code> (e.g. Cardiology, Orthopedics, Neurology, Emergency Medicine)</li>
+            <li><code>location</code> (City or Country, e.g. Istanbul, Dubai, Riyadh, Germany)</li>
+            <li><code>emergency_capable</code> (Boolean: requires 24/7 ER facility)</li>
+            <li><code>telehealth_second_opinion</code> (Boolean: seeking remote specialist review)</li>
+            <li><code>language</code> (e.g. Arabic, English)</li>
+            <li><code>max_fee_usd</code> (Budget ceiling in USD)</li>
+        </ul>
+    </li>
+    <li><code>evaluate_triage_urgency</code>:
+        <ul>
+            <li><code>symptoms</code> (Array of reported patient symptoms)</li>
+            <li><code>red_flags_suspected</code> (Boolean: life-threatening emergency flag)</li>
+            <li><code>provisional_condition</code> (Differential diagnosis, e.g. Acute Coronary Syndrome)</li>
+        </ul>
+    </li>
+</ul>
+
+<h3>Multi-Turn Tool Calling Execution:</h3>
+<ol>
+    <li>The patient submits symptoms in natural language (in English or Arabic).</li>
+    <li>The backend initializes the conversation with Gemini 3.8 Flash configured with tool schemas.</li>
+    <li>The model inspects clinical presentation and calls <code>search_providers</code> with structured parameters.</li>
+    <li>The backend executes the query against verified provider records and returns the function response to the model.</li>
+    <li>The model synthesizes a cohesive, empathetic clinical explanation, 2–3 targeted clarifying questions, and verified doctor recommendations.</li>
+</ol>
+
+<h2>4. Preventing AI Hallucinations</h2>
+<p>Medical applications demand deterministic verification:</p>
+<ol>
+    <li><strong>Negative Constraint Prompting:</strong> The agent system prompt explicitly prohibits generating fictional clinics, doctors, or phone numbers.</li>
+    <li><strong>Server-Side Data Binding:</strong> The provider cards shown in the UI are bound directly to the database query response, preventing synthetic text hallucination.</li>
+    <li><strong>Emergency Safety Override:</strong> If acute red flags are detected, the system immediately surfaces local emergency dispatch hotlines (911 / 998 / 112).</li>
+    <li><strong>Auditability:</strong> Every tool execution (arguments, matched record count, latency in milliseconds) is recorded and viewable in the Telemetry inspector.</li>
+</ol>
+
+<h2>5. Relational Schema Design (PostgreSQL DDL)</h2>
+<pre>
+CREATE TABLE hospitals (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    name_ar VARCHAR(255) NOT NULL,
+    city VARCHAR(128) NOT NULL,
+    country VARCHAR(128) NOT NULL,
+    accreditations TEXT[] NOT NULL,
+    emergency_department_247 BOOLEAN DEFAULT FALSE,
+    helipad BOOLEAN DEFAULT FALSE,
+    languages_supported TEXT[] NOT NULL,
+    international_patient_desk BOOLEAN DEFAULT TRUE,
+    rating NUMERIC(3, 2) DEFAULT 5.00,
+    review_count INTEGER DEFAULT 0,
+    telehealth_ready BOOLEAN DEFAULT TRUE,
+    address TEXT NOT NULL,
+    contact_phone VARCHAR(64) NOT NULL,
+    emergency_hotline VARCHAR(64) NOT NULL,
+    specialties TEXT[] NOT NULL
+);
+
+CREATE INDEX idx_hospitals_city ON hospitals(city);
+CREATE INDEX idx_hospitals_emergency ON hospitals(emergency_department_247);
+
+CREATE TABLE doctors (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    name_ar VARCHAR(255) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    hospital_id VARCHAR(64) REFERENCES hospitals(id) ON DELETE CASCADE,
+    specialty VARCHAR(128) NOT NULL,
+    subspecialties TEXT[] NOT NULL,
+    experience_years INTEGER NOT NULL,
+    languages TEXT[] NOT NULL,
+    second_opinion_available BOOLEAN DEFAULT TRUE,
+    consultation_fee_usd NUMERIC(10, 2) NOT NULL,
+    telehealth_fee_usd NUMERIC(10, 2) NOT NULL,
+    next_available_slot VARCHAR(128),
+    bio TEXT NOT NULL,
+    rating NUMERIC(3, 2) DEFAULT 5.00,
+    procedures TEXT[] NOT NULL,
+    city VARCHAR(128) NOT NULL,
+    country VARCHAR(128) NOT NULL
+);
+
+CREATE INDEX idx_doctors_specialty ON doctors(specialty);
+CREATE INDEX idx_doctors_second_opinion ON doctors(second_opinion_available);
+</pre>
+
+<h2>6. Security, Privacy & Reliability</h2>
+<ul>
+    <li><strong>Zero Secret Exposure:</strong> The Gemini API key is isolated on the server side via <code>process.env.GEMINI_API_KEY</code>. No credentials are ever sent to client browsers.</li>
+    <li><strong>Graceful Deterministic Fallback:</strong> If the AI API experiences network disruption or rate limits, the system seamlessly routes through the clinical rule engine, guaranteeing 100% test reliability.</li>
+    <li><strong>Bilingual RTL/LTR:</strong> Full dynamic localization supporting English (LTR) and Arabic (العربية, RTL) with proper typography and alignment.</li>
+</ul>
+
+<h2>7. How to Run Locally</h2>
+<pre>
+# 1. Install dependencies (with legacy peer deps handling)
+npm install
+
+# 2. Add your Gemini API key in .env (optional; fallback engine operates automatically if absent)
+echo 'GEMINI_API_KEY="your-api-key"' > .env
+
+# 3. Start development server (Port 3000)
+npm run dev
+
+# 4. Open in your browser:
+http://localhost:3000
+</pre>
+
+<hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 20px 0;">
+<p style="font-size: 9.5pt; color: #64748b; text-align: center;">
+HealTrip AI Patient Decision Assistant &bull; Technical Submission Document &bull; Microsoft Word (.doc) Edition
+</p>
+
+</body>
+</html>
