@@ -29,6 +29,7 @@ export interface AgentResponse {
     recordsChecked: number;
     antiHallucinationPassed: boolean;
   };
+  modelUsed?: string;
 }
 
 // Tool definitions for Gemini
@@ -91,20 +92,23 @@ const evaluateTriageTool: FunctionDeclaration = {
 };
 
 export class HealTripAiAgent {
-  private ai: GoogleGenAI | null = null;
+  private getAi(): GoogleGenAI | null {
+    const apiKey =
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.GOOGLE_GENAI_API_KEY ||
+      process.env.VITE_GEMINI_API_KEY;
 
-  constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      this.ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build'
-          }
+    if (!apiKey) return null;
+
+    return new GoogleGenAI({
+      apiKey: apiKey.trim(),
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build'
         }
-      });
-    }
+      }
+    });
   }
 
   public async processPatientQuery(
@@ -122,8 +126,10 @@ export class HealTripAiAgent {
     let matchedDoctors: Doctor[] = [];
     let matchedHospitals: Hospital[] = [];
 
-    // Check if Gemini API is available
-    if (this.ai) {
+    // Dynamically check if Gemini API client is available
+    const ai = this.getAi();
+
+    if (ai) {
       try {
         const systemInstruction = `You are the HealTrip AI Patient Decision Assistant, a medical triage and healthcare navigation agent.
 Your mission:
@@ -135,7 +141,7 @@ Your mission:
 6. Provide your clinical explanation and recommendations in ${preferredLanguage === 'ar' ? 'Arabic (العربية)' : 'English'}, with empathetic, professional tone and structured bullet points.`;
 
         // Turn 1: Model analysis and tool calling
-        const chatResponse = await this.ai.models.generateContent({
+        const chatResponse = await ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents: [
             ...messages.map(m => ({
@@ -235,7 +241,7 @@ Your mission:
 
           // Turn 2: Synthesize final clinical response with tool output
           const previousTurn = chatResponse.candidates?.[0]?.content;
-          const followUpResponse = await this.ai.models.generateContent({
+          const followUpResponse = await ai.models.generateContent({
             model: 'gemini-3.8-flash',
             contents: [
               ...messages.map(m => ({
@@ -262,7 +268,8 @@ Your mission:
             toolExecutions,
             matchedDoctors,
             matchedHospitals,
-            preferredLanguage
+            preferredLanguage,
+            'Gemini 3.8 Flash (Live Function Calling)'
           );
         } else {
           // If no tools were called, formulate standard grounded response
@@ -291,7 +298,8 @@ Your mission:
             toolExecutions,
             searchRes.doctors,
             searchRes.hospitals,
-            preferredLanguage
+            preferredLanguage,
+            'Gemini 3.8 Flash (Direct)'
           );
         }
       } catch (err: any) {
@@ -416,7 +424,8 @@ Based on your description, an outpatient evaluation with a **${triage.suggestedS
     toolExecutions: ToolExecutionRecord[],
     doctors: Doctor[],
     hospitals: Hospital[],
-    language: 'en' | 'ar'
+    language: 'en' | 'ar',
+    modelUsed: string = 'Deterministic Rules Fallback'
   ): AgentResponse {
     const isEmergency = triage.urgency === 'EMERGENCY_RED_FLAG';
     const isSecondOpinion = triage.urgency === 'SECOND_OPINION_TELEHEALTH';
@@ -463,7 +472,8 @@ Based on your description, an outpatient evaluation with a **${triage.suggestedS
         status: isEmergency ? 'SAFETY_OVERRIDE' : 'GROUNDED_AND_VERIFIED',
         recordsChecked: doctors.length + hospitals.length,
         antiHallucinationPassed: true
-      }
+      },
+      modelUsed
     };
   }
 }

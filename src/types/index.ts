@@ -86,6 +86,7 @@ export interface AgentResponse {
     recordsChecked: number;
     antiHallucinationPassed: boolean;
   };
+  modelUsed?: string;
 }
 
 export interface MessageItem {

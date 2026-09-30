@@ -216,9 +216,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                               {badge.icon}
                               <span>{badge.title}</span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold self-start sm:self-auto">
-                              <span className={`w-2 h-2 rounded-full ${badge.dot}`} />
-                              <span>{Math.round(msg.agentData.confidence * 100)}% Confidence</span>
+                            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                              {msg.agentData.modelUsed && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white/80 text-teal-800 border border-teal-200/80 shadow-2xs">
+                                  {msg.agentData.modelUsed.includes('Gemini') ? '✨ ' + msg.agentData.modelUsed : '⚙️ ' + msg.agentData.modelUsed}
+                                </span>
+                              )}
+                              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold">
+                                <span className={`w-2 h-2 rounded-full ${badge.dot}`} />
+                                <span>{Math.round(msg.agentData.confidence * 100)}% Confidence</span>
+                              </div>
                             </div>
                           </div>
                         );

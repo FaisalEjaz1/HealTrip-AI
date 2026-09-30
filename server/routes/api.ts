@@ -154,10 +154,21 @@ apiRouter.get('/system-architecture', (req: Request, res: Response) => {
 
 // Health check endpoint
 apiRouter.get('/health', (req: Request, res: Response) => {
+  const detectedKeyName = process.env.GEMINI_API_KEY
+    ? 'GEMINI_API_KEY'
+    : process.env.GOOGLE_API_KEY
+    ? 'GOOGLE_API_KEY'
+    : process.env.GOOGLE_GENAI_API_KEY
+    ? 'GOOGLE_GENAI_API_KEY'
+    : process.env.VITE_GEMINI_API_KEY
+    ? 'VITE_GEMINI_API_KEY'
+    : null;
+
   return res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    gemini_key_configured: Boolean(process.env.GEMINI_API_KEY),
+    gemini_key_configured: Boolean(detectedKeyName),
+    key_name_detected: detectedKeyName || 'NONE_CONFIGURED',
     stats: {
       total_doctors: medicalDirectoryDb.getAllDoctors().length,
       total_hospitals: medicalDirectoryDb.getAllHospitals().length,
