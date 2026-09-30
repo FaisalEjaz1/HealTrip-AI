@@ -1,0 +1,6 @@
+{
+  "name": "HealTrip AI Patient Decision Assistant",
+  "description": "Bilingual AI triage and clinical decision assistant with grounded medical provider search, red-flag emergency detection, and tool calling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
